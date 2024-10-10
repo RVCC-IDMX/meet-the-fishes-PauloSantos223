@@ -1,84 +1,71 @@
 var UI = {
-
-    Button : function(x,y,text,params) {
-
-        //
-        //Default Parameters
-        //
-
-        if (params == undefined) {
+    Button: function(x, y, text, params) {
+        // Default Parameters
+        if (params === undefined) {
             params = {};
         }
-        if (params.backgroundColor == undefined)
+        if (params.backgroundColor === undefined) {
             params.backgroundColor = 0xEEEEEE;
-        if (params.textStyle == undefined) {
+        }
+        if (params.textStyle === undefined) {
             params.textStyle = {
-                fontFamily : 'Arial', 
-                fontSize: 24, 
-                fill : 0x000000
-            }
+                fontFamily: 'Arial',
+                fontSize: 24,
+                fill: 0x000000,
+            };
         }
 
-        //
-        //Display Elements
-        //
-
+        // Create button container
         var ourButton = new PIXI.Container();
-            ourButton.interactive = true;
-            ourButton.x = x;
-            ourButton.y = y;
+        ourButton.interactive = true;
+        ourButton.x = x;
+        ourButton.y = y;
 
+        // Button body with rounded corners
         var buttonBody = new PIXI.Graphics();
-            buttonBody.beginFill(params.backgroundColor);
-            buttonBody.drawRect(0, 0, 200, 100);
-            ourButton.addChild(buttonBody);
+        buttonBody.beginFill(params.backgroundColor);
+        buttonBody.drawRoundedRect(0, 0, 200, 100, 15);
+        buttonBody.endFill();
+        ourButton.addChild(buttonBody);
 
-            ourButton.body = buttonBody;
-        
-        var buttonText = new PIXI.Text(text,params.textStyle);
-            buttonText.anchor.set(.5,.5);
-            buttonText.x = 100;
-            buttonText.y = 50;
-            ourButton.addChild(buttonText);
+        // Shadow effect
+        var shadow = new PIXI.Graphics();
+        shadow.beginFill(0x000000, 0.5); 
+        shadow.drawRoundedRect(5, 5, 200, 100, 15);
+        shadow.endFill();
+        ourButton.addChild(shadow); 
 
-            ourButton.label = buttonText;
+        // Button text
+        var buttonText = new PIXI.Text(text, params.textStyle);
+        buttonText.anchor.set(0.5, 0.5);
+        buttonText.x = 100; 
+        buttonText.y = 50; 
+        ourButton.addChild(buttonText);
 
-        //
-        //Event Listeners
-        //
+        // Hover effects
+        ourButton.on("pointerover", () => {
+            buttonBody.clear(); 
+            buttonBody.beginFill(0x34bf80); 
+            buttonBody.drawRoundedRect(0, 0, 200, 100, 15);
+            buttonBody.endFill();
+        });
 
-        //Click listener
-        ourButton.onclick = function (e) {
-            console.log("Clicked");
-        };
-        ourButton.on("click",(e) => ourButton.onclick(e));
-        
-        //Pointer down and up
-        ourButton.pointerdown = function (e) {
-            ourButton.alpha = 0.7;
-        };
-        ourButton.on("pointerover", (e) => ourButton.pointerdown(e));
-        
-        ourButton.pointerup = function (e) {
-            ourButton.alpha = 1.0;
-        };
-        ourButton.on("pointerout",(e) => ourButton.pointerup(e));
+        ourButton.on("pointerout", () => {
+            buttonBody.clear(); 
+            buttonBody.beginFill(params.backgroundColor); 
+            buttonBody.drawRoundedRect(0, 0, 200, 100, 15);
+            buttonBody.endFill();
+        });
 
-        //Hover listeners
-        ourButton.pointerover = function (e) {
-            ourButton.alpha = 0.9;
-        };
-        ourButton.on("pointerover",(e) => ourButton.pointerover(e));
-        
-        ourButton.pointerout = function (e) {
-            ourButton.alpha = 1.0;
-        };
-        ourButton.on("pointerout",(e) => ourButton.pointerout(e));
+        // Click effects
+        ourButton.on("pointerdown", () => {
+            gsap.to(ourButton.scale, { x: 0.95, y: 0.95, duration: 0.1 }); // Slight shrink effect
+        });
+
+        ourButton.on("pointerup", () => {
+            gsap.to(ourButton.scale, { x: 1, y: 1, duration: 0.1 }); // Return to original size
+        });
 
         return ourButton;
-
     },
-
-    
-
-}
+};

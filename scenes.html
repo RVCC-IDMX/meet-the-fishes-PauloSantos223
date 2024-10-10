@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -17,379 +18,538 @@
     <script src="js/bezier.js"></script>
     <script src="js/animate.js"></script>
     <script src="js/ui_elements.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+
 </head>
+
 <body>
 
-<script type="module">
+    <script type="module">
 
-    //
-    // Basic setup
-    //
+        //
+        // Basic setup
+        //
 
-    //The App
-    var app = new PIXI.Application();
-    await app.init({
-        width:640,
-        height:480,
-        backgroundColor: 0x000000
-    });
-    var stage = app.stage;
-    var view = app.canvas;
+        //The App
+        var app = new PIXI.Application();
+        await app.init({
+            width: 640,
+            height: 480,
+            backgroundColor: 0x000000
+        });
+        var stage = app.stage;
+        var view = app.canvas;
 
-    //Add view to the document
-    document.body.appendChild(app.view);
+        //Add view to the document
+        document.body.appendChild(app.view);
 
-    /*
-        Depending on the system or context, these can be called "scenes" "views" "pages" "panels" or all sorts of other things.
-
-        The important bit is that they are each a grouping or state of different interface elements that need to be on the screen at different times.
-
-        We'll call them "scenes" – if only because they're going up onto the Pixi.js stage object when we need them.
-    * /
-
-    //
-    // Let's create a few really boring scenes using Pixi.js Containers
-    //
-
-    //SCENE 1
-    let scene1 = new PIXI.Container();
-
-    //Using our button object let's create a "next" button.
-    let nextButton = UI.Button(0,0,"Next >");
-    
-    //Let's place it in the bottom right-hand corner of the screen (regardless of size)
-    nextButton.x = app.view.width  - nextButton.width;
-    nextButton.y = app.view.height - nextButton.height;
-
-    //And place it into the scene
-    scene1.addChild(nextButton);
-
-    //And let's add some text to tell us which scene we're on
-    let scene1Text = new PIXI.Text("Scene 1",{fill:0xFFFFFF});
-
-    //And place it into the scene
-    scene1.addChild(scene1Text);
+    await PIXI.Assets.load('img/Fish 1 PNG.png');
+    await PIXI.Assets.load('img/Fish 2 PNG.png');
+    await PIXI.Assets.load('img/Fish 3 PNG.png');
 
 
-    //SCENE 2
-    let scene2 = new PIXI.Container();
+        // Director handles all scenes
+        var Director = {
+            scene: {},
+            currentScene: null,
 
-    //Using our button object let's create a "next" button.
-    let backButton = UI.Button(0,0,"< Back");
-    
-    //Let's place it in the bottom left-hand corner of the screen (regardless of size)
-    backButton.x = 0;
-    backButton.y = app.view.height - backButton.height;
+            addScene: function (name, scene) {
+                this.scene[name] = scene;
+                if (!this.currentScene) this.currentScene = name;
+            },
 
-    //And place it into the scene
-    scene2.addChild(backButton);
+            showScene: async function (nextSceneName) {
+                let currentScene = this.scene[this.currentScene];
+                let nextScene = this.scene[nextSceneName];
 
-    //And let's also add some text to tell us which scene we're on
-    let scene2Text = new PIXI.Text("Scene 2",{fill:0xFFFFFF});
+                await Animate.to(currentScene, { alpha: 0, duration: 500 });
+                stage.removeChild(currentScene);
+                nextScene.alpha = 0;
+                stage.addChild(nextScene);
+                await Animate.to(nextScene, { alpha: 1, duration: 500 });
 
-    //And place it into the scene
-    scene2.addChild(scene2Text);
+                this.currentScene = nextSceneName;
+            }
+        };
 
-
-    //Now let's add the first scene to the stage
-    app.stage.addChild(scene1);
-
-
-    /*
-
-        So now we have two scenes set up, and the first scene on stage.
-
-        The easiest, ugliest way to swap between scenes, would be to assign some code to each button to pull the current scene off the stage and replace it with another.
-
-    * /
-
-    //
-    // Swapping between scenes
-    //
-
-    nextButton.onclick = () => {
-        app.stage.removeChild(scene1);
-        app.stage.addChild(scene2);
-    }
-
-    backButton.onclick = () => {
-        app.stage.removeChild(scene2);
-        app.stage.addChild(scene1);
-    }
-
-    /*
-
-        Tada! We've implemented a crappy version of Powerpoint... *yay*
-
-        It would be better if we could build in a nice fade transition, though, right?
-
-    * /
-
-    nextButton.onclick = async () => {
-        //Fade out current scene
-        await Animate.to(scene1,{alpha:0,duration:500});
-        //Remove it from stage
-        app.stage.removeChild(scene1);
-        //Set next scene to zero alpha
-        scene2.alpha = 0;
-        //Add it to the stage
-        app.stage.addChild(scene2);
-        //Fade it in
-        await Animate.to(scene2,{alpha:1,duration:500});
-        //Reset the off-stage scene's alpha back
-        scene2.alpha = 1;
-    }
-
-    backButton.onclick = async () => {
-        //Fade out current scene
-        await Animate.to(scene2,{alpha:0,duration:500});
-        //Remove it from stage
-        app.stage.removeChild(scene2);
-        //Set next scene to zero alpha
-        scene2.alpha = 0;
-        //Add it to the stage
-        app.stage.addChild(scene1);
-        //Fade it in
-        await Animate.to(scene1,{alpha:1,duration:500});
-        //Reset the off-stage scene's alpha back
-        scene1.alpha = 1;
-    }
-
-    /*
-
-        Or how about a swipe transition?
-
-    * /
-
-    nextButton.onclick = async () => {
-        //Set up next scene on the right
-        scene2.x = app.view.width;
-        app.stage.addChild(scene2);
-
-        //Fade out current scene as it moves off to the left
-        Animate.to(scene1,{x:-app.view.width,
-                                duration:500,easing:Animate.easeInOut});
-        //WHILE bringing in the next scene
-        await Animate.to(scene2,{x:0,
-                                duration:500,easing:Animate.easeInOut});
-        //We only "await" on the last animation, so that they both move at the same time
-
-        //Remove the old scene from stage
-        app.stage.removeChild(scene1);
-        //And just to be nice, replace it where it belongs
-        scene1.x = 0;
-    }
-
-    backButton.onclick = async () => {
-        //Set up next scene on the right
-        scene1.x = -app.view.width;
-        app.stage.addChild(scene1);
-
-        //Fade out current scene as it moves off to the left
-        Animate.to(scene2,{x:app.view.width,
-                                duration:500,easing:Animate.easeInOut});
-        //WHILE bringing in the next scene
-        await Animate.to(scene1,{x:0,
-                                duration:500,easing:Animate.easeInOut});
-        //We only "await" on the last animation, so that they both move at the same time
-
-        //Remove the old scene from stage
-        app.stage.removeChild(scene2);
-        //And just to be nice, replace it where it belongs
-        scene2.x = 0;
-    }
-
-    /*
-
-        So all of this is awesome, but it's messy if we scale it.
-
-        What happens if we have many scenes? We'd have to duplicate a lot of code.
-
-        Let's create a system for scene management.
-
-    * /
-
-    //Let's call it the Director. It calls the shots.
-    var Director = {
-
-        //It holds a list of scenes
-        scene : {},
         
-        //Add a scene to the list
-        addScene : (name,scene) => {
+        // title scene
+        var titleScene = new PIXI.Container();
+        var titleText = new PIXI.Text("Meet the Fish", { fontSize: 50, fill: 0xffffff });
+        titleText.anchor.set(0.5);
+        titleText.x = app.view.width / 2;
+        titleText.y = app.view.height / 2;
+        titleScene.addChild(titleText);
 
-            //If it exists throw an error
-            if (Director.scene[name]) 
-                throw "That scene already exists!"
-            
-            //Otherwise add it
-            Director.scene[name] = scene;
+        var startButton = UI.Button(0, 0, "Start");
+        startButton.x = app.view.width / 2 - startButton.width / 2;
+        startButton.y = app.view.height / 2 + 100;
+        startButton.interactive = true;
+        startButton.buttonMode = true;
+        startButton.on('pointerdown', () => Director.showScene("fish1"));
+        titleScene.addChild(startButton);
 
-            //If it's the first scene, make it the active one
-            if (Director.currentScene == null)
-                Director.currentScene = name;
+        Director.addScene("title", titleScene);
+        stage.addChild(titleScene);
 
-        },
+        // Fish 1 Scene
+        var fish1Scene = new PIXI.Container();
+        var fish1Text = new PIXI.Text("Fish 1: Nemo", { fontSize: 40, fill: 0xe05012 });
+        fish1Text.x = 50;
+        fish1Text.y = 50;
+        fish1Scene.addChild(fish1Text);
 
-        //And it keeps track of the current one
-        currentScene : null,
+        // Loads the fish 1 image 
+        let fish1Sprite = PIXI.Sprite.from('img/Fish 1 PNG.png');
+        fish1Sprite.x = 100;
+        fish1Sprite.y = 100;
+        fish1Sprite.scale.set(0.25);
+        fish1Scene.addChild(fish1Sprite);
 
-        //And a function to change scenes
-        showScene : async (nextSceneName, params) => {
+        // Animation for fish1
+        app.ticker.add(() => {
+            fish1Sprite.scale.x = 0.2 + Math.sin(Date.now() * 0.001) * 0.1; 
+            fish1Sprite.scale.y = 0.2 + Math.sin(Date.now() * 0.001) * 0.1; 
+            fish1Sprite.y = 200 + Math.sin(Date.now() * 0.01) * 10;
+        });
 
-            if (params == undefined) params = {};
+        // Next button for fish1
+        var fish1Next = UI.Button(0, 0, "Next >");
+        fish1Next.x = app.view.width - fish1Next.width;
+        fish1Next.y = app.view.height - fish1Next.height;
+        fish1Next.interactive = true;
+        fish1Next.buttonMode = true;
+        fish1Next.on('pointerdown', () => Director.showScene("fish2"));
+        fish1Scene.addChild(fish1Next);
 
-            let currentScene = Director.scene[Director.currentScene];
-                nextScene    = Director.scene[nextSceneName];
+        Director.addScene("fish1", fish1Scene);
 
-            if (params.transition == undefined)
-                params.transition = Director.cut;
+        // Fish 2 Profile Scene
+        var fish2Scene = new PIXI.Container();
+        var fish2Text = new PIXI.Text("Fish 2: Scaley", { fontSize: 40, fill: 0x17b4d4 });
+        fish2Text.x = 50;
+        fish2Text.y = 50;
+        fish2Scene.addChild(fish2Text);
 
-            await params.transition(currentScene, nextScene, params);
+        let fish2Sprite = PIXI.Sprite.from('img/Fish 2 PNG.png');
+        fish2Sprite.x = 100;
+        fish2Sprite.y = 100;
+        fish2Sprite.scale.set(0.25);
+        fish2Scene.addChild(fish2Sprite);
 
-            Director.currentScene = nextSceneName;
+        app.ticker.add(() => {
+            fish2Sprite.x += Math.sin(Date.now() * 0.005) * 2; // Bobbing movement
+        });
 
-        },
+        var fish2Next = UI.Button(0, 0, "Next >");
+        fish2Next.x = app.view.width - fish2Next.width;
+        fish2Next.y = app.view.height - fish2Next.height;
+        fish2Next.interactive = true;
+        fish2Next.buttonMode = true;
+        fish2Next.on('pointerdown', () => Director.showScene("fish3"));
+        fish2Scene.addChild(fish2Next);
 
+        Director.addScene("fish2", fish2Scene);
+
+        // Fish 3 Profile Scene
+        var fish3Scene = new PIXI.Container();
+        var fish3Text = new PIXI.Text("Fish 3: Crazy Starfish", { fontSize: 40, fill: 0xa832a2 });
+        fish3Text.x = 50;
+        fish3Text.y = 50;
+        fish3Scene.addChild(fish3Text);
+
+        let fish3Sprite = PIXI.Sprite.from('img/Fish 3 PNG.png');
+        fish3Sprite.x = 100;
+        fish3Sprite.y = 100;
+        fish3Sprite.scale.set(0.25);
+        fish3Scene.addChild(fish3Sprite);
+
+        let colorChangeDuration = 100;
+        let colorIndex = 0;
+        let colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff];
+
+        app.ticker.add(() => {
+            if (colorChangeDuration > 0) {
+                colorChangeDuration--;
+            } else {
+                
+                colorIndex = (colorIndex + 1) % colors.length; 
+                fish3Sprite.tint = colors[colorIndex]; 
+                colorChangeDuration = 200; 
+            }
+
+            fish3Sprite.alpha = Math.sin(Date.now() * 0.005) * 0.5 + 0.5;
+            fish3Sprite.y = 100 + Math.sin(Date.now() * 0.001) * 50;
+        });
+
+        var fish3Back = UI.Button(0, 0, "Back to Title");
+        fish3Back.x = app.view.width - fish3Back.width;
+        fish3Back.y = app.view.height - fish3Back.height;
+        fish3Back.interactive = true;
+        fish3Back.buttonMode = true;
+        fish3Back.on('pointerdown', () => Director.showScene("title"));
+        fish3Scene.addChild(fish3Back);
+
+        Director.addScene("fish3", fish3Scene);
+
+        // Show the first scene
+        Director.showScene("title");
+
+
+        
+
+        /*
+            Depending on the system or context, these can be called "scenes" "views" "pages" "panels" or all sorts of other things.
+    
+            The important bit is that they are each a grouping or state of different interface elements that need to be on the screen at different times.
+    
+            We'll call them "scenes" – if only because they're going up onto the Pixi.js stage object when we need them.
+        * /
+    
         //
-        //Transitions
+        // Let's create a few really boring scenes using Pixi.js Containers
         //
-
-        //Cut (no transition)
-        cut : async (currentScene,nextScene,params) => {
-            app.stage.removeChild(currentScene);
-            app.stage.addChild(nextScene);
-        },
-
-        //Fade between
-        fade : async (currentScene,nextScene,params) => {
-
-            //Check duration
-            if (params == undefined) params = {};
-            if (params.duration == undefined) params.duration = 500;
-
+    
+        //SCENE 1
+        let scene1 = new PIXI.Container();
+    
+        //Using our button object let's create a "next" button.
+        let nextButton = UI.Button(0,0,"Next >");
+        
+        //Let's place it in the bottom right-hand corner of the screen (regardless of size)
+        nextButton.x = app.view.width  - nextButton.width;
+        nextButton.y = app.view.height - nextButton.height;
+    
+        //And place it into the scene
+        scene1.addChild(nextButton);
+    
+        //And let's add some text to tell us which scene we're on
+        let scene1Text = new PIXI.Text("Scene 1",{fill:0xFFFFFF});
+    
+        //And place it into the scene
+        scene1.addChild(scene1Text);
+    
+    
+        //SCENE 2
+        let scene2 = new PIXI.Container();
+    
+        //Using our button object let's create a "next" button.
+        let backButton = UI.Button(0,0,"< Back");
+        
+        //Let's place it in the bottom left-hand corner of the screen (regardless of size)
+        backButton.x = 0;
+        backButton.y = app.view.height - backButton.height;
+    
+        //And place it into the scene
+        scene2.addChild(backButton);
+    
+        //And let's also add some text to tell us which scene we're on
+        let scene2Text = new PIXI.Text("Scene 2",{fill:0xFFFFFF});
+    
+        //And place it into the scene
+        scene2.addChild(scene2Text);
+    
+    
+        //Now let's add the first scene to the stage
+        app.stage.addChild(scene1);
+    
+    
+        /*
+    
+            So now we have two scenes set up, and the first scene on stage.
+    
+            The easiest, ugliest way to swap between scenes, would be to assign some code to each button to pull the current scene off the stage and replace it with another.
+    
+        * /
+    
+        //
+        // Swapping between scenes
+        //
+    
+        nextButton.onclick = () => {
+            app.stage.removeChild(scene1);
+            app.stage.addChild(scene2);
+        }
+    
+        backButton.onclick = () => {
+            app.stage.removeChild(scene2);
+            app.stage.addChild(scene1);
+        }
+    
+        /*
+    
+            Tada! We've implemented a crappy version of Powerpoint... *yay*
+    
+            It would be better if we could build in a nice fade transition, though, right?
+    
+        * /
+    
+        nextButton.onclick = async () => {
             //Fade out current scene
-            await Animate.to(currentScene,{alpha:0,duration:params.duration/2});
+            await Animate.to(scene1,{alpha:0,duration:500});
             //Remove it from stage
-            app.stage.removeChild(currentScene);
+            app.stage.removeChild(scene1);
             //Set next scene to zero alpha
-            nextScene.alpha = 0;
+            scene2.alpha = 0;
             //Add it to the stage
-            app.stage.addChild(nextScene);
+            app.stage.addChild(scene2);
             //Fade it in
-            await Animate.to(nextScene,{alpha:1,duration:params.duration/2});
+            await Animate.to(scene2,{alpha:1,duration:500});
             //Reset the off-stage scene's alpha back
-            currentScene.alpha = 1;
-        },
-
-        //Slide in a particular direction
-        swipe : async (currentScene,nextScene,params) => {
-
-            //Set up destinations
-            let currentSceneEndX,  currentSceneEndY;
-            let nextSceneStartX,   nextSceneStartY;
-
-            //Check duration
-            if (params == undefined) params = {};
-            if (params.duration == undefined) params.duration = 500;
-
-            //Set default direction
-            if (params.direction == undefined) params.direction = "left";
-
-            //Figure out initial and end positions
-            if (params.direction == "left") {
-                currentSceneEndX = -app.view.width;
-                currentSceneEndY = 0;
-                nextSceneStartX = app.view.width;
-                nextSceneStartY = 0;
-            }
-            else if (params.direction == "right") {
-                currentSceneEndX = app.view.width;
-                currentSceneEndY = 0;
-                nextSceneStartX = -app.view.width;
-                nextSceneStartY = 0;
-            }
-            else if (params.direction == "up") {
-                currentSceneEndX = 0;
-                currentSceneEndY = -app.view.height;
-                nextSceneStartX = 0;
-                nextSceneStartY = app.view.height;
-            }
-            else if (params.direction == "down") {
-                currentSceneEndX = 0;
-                currentSceneEndY = app.view.height;
-                nextSceneStartX = 0;
-                nextSceneStartY = -app.view.height;
-            }
-
-            //Set up next scene
-            nextScene.x = nextSceneStartX;
-            nextScene.y = nextSceneStartY;
-            app.stage.addChild(nextScene);
-
-            //Slide out current scene as it moves off
-            Animate.to(currentScene,{   x:currentSceneEndX, y:currentSceneEndY,
-                                        duration:params.duration,
-                                        easing:Animate.easeInOut});
-            //WHILE bringing in the next scene
-            await Animate.to(nextScene,{x:0, y:0,
-                                        duration:params.duration,
-                                        easing:Animate.easeInOut});
-            //We only "await" on the last animation, so that they both move at the same time
-
-            //Remove the old scene from stage
-            app.stage.removeChild(currentScene);
-
-            //And just to be nice, move the old scene back to neutral
-            currentScene.x = 0;
-            currentScene.y = 0;
-
-        },
-
-    };
-
-    /*
-
-        Now let's set up our prior scenes with the Director instead.
-
-    * /
-
-    Director.addScene("first",scene1);
-    Director.addScene("second",scene2);
-
-    nextButton.onclick = () => {
-        Director.showScene("second");
-    }
-
-    backButton.onclick = () => {
-        Director.showScene("first");
-    }
-
-    /*
-        This week's homework!
-
-        Accept the assignment invite for Meet The Fish (when it goes up).
-
-        Put together a multi-scened presentation to show off fictional profiles of 3 of *your* fish. (Replace the ones in the images folder here.)
-
-        (Read up on the Graphics and Text display objects here:)
-        
-            https://pixijs.download/dev/docs/PIXI.Graphics.html
-            https://pixijs.download/dev/docs/PIXI.Text.html
-        
-        (They will help.)
-        
-        Each fish should be animated on their profile page in their own unique way.
-        
-        There should be – at least – a title screen, and one screen for each fish but bonus points for adding on more.
-
-        Add to the button system so that the buttons look more aesthetic.
-
-        Add in a new transition of your choice and implement it on one of your transitions.
-
-    */
-
-</script>
+            scene2.alpha = 1;
+        }
     
+        backButton.onclick = async () => {
+            //Fade out current scene
+            await Animate.to(scene2,{alpha:0,duration:500});
+            //Remove it from stage
+            app.stage.removeChild(scene2);
+            //Set next scene to zero alpha
+            scene2.alpha = 0;
+            //Add it to the stage
+            app.stage.addChild(scene1);
+            //Fade it in
+            await Animate.to(scene1,{alpha:1,duration:500});
+            //Reset the off-stage scene's alpha back
+            scene1.alpha = 1;
+        }
+    
+        /*
+    
+            Or how about a swipe transition?
+    
+        * /
+    
+        nextButton.onclick = async () => {
+            //Set up next scene on the right
+            scene2.x = app.view.width;
+            app.stage.addChild(scene2);
+    
+            //Fade out current scene as it moves off to the left
+            Animate.to(scene1,{x:-app.view.width,
+                                    duration:500,easing:Animate.easeInOut});
+            //WHILE bringing in the next scene
+            await Animate.to(scene2,{x:0,
+                                    duration:500,easing:Animate.easeInOut});
+            //We only "await" on the last animation, so that they both move at the same time
+    
+            //Remove the old scene from stage
+            app.stage.removeChild(scene1);
+            //And just to be nice, replace it where it belongs
+            scene1.x = 0;
+        }
+    
+        backButton.onclick = async () => {
+            //Set up next scene on the right
+            scene1.x = -app.view.width;
+            app.stage.addChild(scene1);
+    
+            //Fade out current scene as it moves off to the left
+            Animate.to(scene2,{x:app.view.width,
+                                    duration:500,easing:Animate.easeInOut});
+            //WHILE bringing in the next scene
+            await Animate.to(scene1,{x:0,
+                                    duration:500,easing:Animate.easeInOut});
+            //We only "await" on the last animation, so that they both move at the same time
+    
+            //Remove the old scene from stage
+            app.stage.removeChild(scene2);
+            //And just to be nice, replace it where it belongs
+            scene2.x = 0;
+        }
+    
+        /*
+    
+            So all of this is awesome, but it's messy if we scale it.
+    
+            What happens if we have many scenes? We'd have to duplicate a lot of code.
+    
+            Let's create a system for scene management.
+    
+        * /
+    
+        //Let's call it the Director. It calls the shots.
+        var Director = {
+    
+            //It holds a list of scenes
+            scene : {},
+            
+            //Add a scene to the list
+            addScene : (name,scene) => {
+    
+                //If it exists throw an error
+                if (Director.scene[name]) 
+                    throw "That scene already exists!"
+                
+                //Otherwise add it
+                Director.scene[name] = scene;
+    
+                //If it's the first scene, make it the active one
+                if (Director.currentScene == null)
+                    Director.currentScene = name;
+    
+            },
+    
+            //And it keeps track of the current one
+            currentScene : null,
+    
+            //And a function to change scenes
+            showScene : async (nextSceneName, params) => {
+    
+                if (params == undefined) params = {};
+    
+                let currentScene = Director.scene[Director.currentScene];
+                    nextScene    = Director.scene[nextSceneName];
+    
+                if (params.transition == undefined)
+                    params.transition = Director.cut;
+    
+                await params.transition(currentScene, nextScene, params);
+    
+                Director.currentScene = nextSceneName;
+    
+            },
+    
+            //
+            //Transitions
+            //
+    
+            //Cut (no transition)
+            cut : async (currentScene,nextScene,params) => {
+                app.stage.removeChild(currentScene);
+                app.stage.addChild(nextScene);
+            },
+    
+            //Fade between
+            fade : async (currentScene,nextScene,params) => {
+    
+                //Check duration
+                if (params == undefined) params = {};
+                if (params.duration == undefined) params.duration = 500;
+    
+                //Fade out current scene
+                await Animate.to(currentScene,{alpha:0,duration:params.duration/2});
+                //Remove it from stage
+                app.stage.removeChild(currentScene);
+                //Set next scene to zero alpha
+                nextScene.alpha = 0;
+                //Add it to the stage
+                app.stage.addChild(nextScene);
+                //Fade it in
+                await Animate.to(nextScene,{alpha:1,duration:params.duration/2});
+                //Reset the off-stage scene's alpha back
+                currentScene.alpha = 1;
+            },
+    
+            //Slide in a particular direction
+            swipe : async (currentScene,nextScene,params) => {
+    
+                //Set up destinations
+                let currentSceneEndX,  currentSceneEndY;
+                let nextSceneStartX,   nextSceneStartY;
+    
+                //Check duration
+                if (params == undefined) params = {};
+                if (params.duration == undefined) params.duration = 500;
+    
+                //Set default direction
+                if (params.direction == undefined) params.direction = "left";
+    
+                //Figure out initial and end positions
+                if (params.direction == "left") {
+                    currentSceneEndX = -app.view.width;
+                    currentSceneEndY = 0;
+                    nextSceneStartX = app.view.width;
+                    nextSceneStartY = 0;
+                }
+                else if (params.direction == "right") {
+                    currentSceneEndX = app.view.width;
+                    currentSceneEndY = 0;
+                    nextSceneStartX = -app.view.width;
+                    nextSceneStartY = 0;
+                }
+                else if (params.direction == "up") {
+                    currentSceneEndX = 0;
+                    currentSceneEndY = -app.view.height;
+                    nextSceneStartX = 0;
+                    nextSceneStartY = app.view.height;
+                }
+                else if (params.direction == "down") {
+                    currentSceneEndX = 0;
+                    currentSceneEndY = app.view.height;
+                    nextSceneStartX = 0;
+                    nextSceneStartY = -app.view.height;
+                }
+    
+                //Set up next scene
+                nextScene.x = nextSceneStartX;
+                nextScene.y = nextSceneStartY;
+                app.stage.addChild(nextScene);
+    
+                //Slide out current scene as it moves off
+                Animate.to(currentScene,{   x:currentSceneEndX, y:currentSceneEndY,
+                                            duration:params.duration,
+                                            easing:Animate.easeInOut});
+                //WHILE bringing in the next scene
+                await Animate.to(nextScene,{x:0, y:0,
+                                            duration:params.duration,
+                                            easing:Animate.easeInOut});
+                //We only "await" on the last animation, so that they both move at the same time
+    
+                //Remove the old scene from stage
+                app.stage.removeChild(currentScene);
+    
+                //And just to be nice, move the old scene back to neutral
+                currentScene.x = 0;
+                currentScene.y = 0;
+    
+            },
+    
+        };
+    
+        /*
+    
+            Now let's set up our prior scenes with the Director instead.
+    
+        * /
+    
+        Director.addScene("first",scene1);
+        Director.addScene("second",scene2);
+    
+        nextButton.onclick = () => {
+            Director.showScene("second");
+        }
+    
+        backButton.onclick = () => {
+            Director.showScene("first");
+        }
+    
+        /*
+            This week's homework!
+    
+            Accept the assignment invite for Meet The Fish (when it goes up).
+    
+            Put together a multi-scened presentation to show off fictional profiles of 3 of *your* fish. (Replace the ones in the images folder here.)
+    
+            (Read up on the Graphics and Text display objects here:)
+            
+                https://pixijs.download/dev/docs/PIXI.Graphics.html
+                https://pixijs.download/dev/docs/PIXI.Text.html
+            
+            (They will help.)
+            
+            Each fish should be animated on their profile page in their own unique way.
+            
+            There should be – at least – a title screen, and one screen for each fish but bonus points for adding on more.
+    
+            Add to the button system so that the buttons look more aesthetic.
+    
+            Add in a new transition of your choice and implement it on one of your transitions.
+    
+        */
+
+    </script>
+
 </body>
+
 </html>
